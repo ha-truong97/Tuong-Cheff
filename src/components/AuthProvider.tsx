@@ -50,14 +50,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setProfile({ id: docSnap.id, ...docSnap.data() } as UserProfile);
         } else {
           // If profile doesn't exist, create it from Google User info
-          const newProfile: UserProfile = {
-            id: user.uid,
+          const newProfile: any = {
             username: user.email?.split('@')[0] || 'user',
             realName: user.displayName || 'Người dùng',
             role: 'employee',
             createdAt: new Date().toISOString(),
           };
-          await setDoc(doc(db, user.uid), newProfile);
+          await setDoc(doc(db, 'users', user.uid), newProfile);
           // Snapshot will trigger again and update state
         }
         setLoading(false);

@@ -15,7 +15,9 @@ export default function LoginScreen() {
       await loginWithGoogle();
     } catch (err: any) {
       console.error(err);
-      setError('Lỗi đăng nhập Google. Vui lòng thử lại.');
+      // Hiển thị mã lỗi chi tiết để người dùng dễ dàng cấu hình Firebase
+      const errorCode = err.code ? ` (${err.code})` : '';
+      setError(`Lỗi đăng nhập Google${errorCode}. Vui lòng thử lại.`);
     } finally {
       setLoading(false);
     }
