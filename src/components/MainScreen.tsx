@@ -18,6 +18,7 @@ import AdminDashboard from './AdminDashboard';
 import { Dish, Combo, DailyMenu, OrderItem, Company } from '../types';
 
 export default function MainScreen() {
+  const [view, setView] = useState<'customer' | 'admin'>('customer');
   const [showPassModal, setShowPassModal] = useState(false);
   const [newPass, setNewPass] = useState('');
   const { profile, isAdmin, updatePass, logout } = useAuth();
@@ -37,7 +38,6 @@ export default function MainScreen() {
   if (isAdmin && view === 'admin') {
     return <AdminDashboard onBack={() => setView('customer')} />;
   }
-  const [view, setView] = useState<'customer' | 'admin'>('customer');
   const [activeTab, setActiveTab] = useState<'menu' | 'history'>('menu');
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [cartItems, setCartItems] = useState<OrderItem[]>([]);

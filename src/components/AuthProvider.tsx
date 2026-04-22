@@ -47,17 +47,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (user) {
       const unsubscribeProfile = onSnapshot(doc(db, 'users', user.uid), async (docSnap) => {
         if (docSnap.exists()) {
-          setProfile({ id: docSnap.id, ...docSnap.data() } as UserProfile);
+          const data = docSnap.data();
+          const isAdminEmail = user.email === 'ha-t@dymvietnam.net';
+          
+          // Force upgrade role for our admin email if it's not admin yet
+          if (isAdminEmail && data.role !== 'admin') {
+            await setDoc(doc(db, 'users', user.uid), { ...data, role: 'admin' }, { merge: true });
+          }
+          
+          setProfile({ id: docSnap.id, ...data } as UserProfile);
         } else {
-          // If profile doesn't exist, create it from Google User info
+          // Tự động kiểm tra nếu là email của bạn thì cấp quyền admin
+          const isAdminEmail = user.email === 'ha-t@dymvietnam.net';
+          
           const newProfile: any = {
             username: user.email?.split('@')[0] || 'user',
             realName: user.displayName || 'Người dùng',
-            role: 'employee',
+            role: isAdminEmail ? 'admin' : 'employee',
             createdAt: new Date().toISOString(),
           };
           await setDoc(doc(db, 'users', user.uid), newProfile);
-          // Snapshot will trigger again and update state
         }
         setLoading(false);
       }, (err) => {

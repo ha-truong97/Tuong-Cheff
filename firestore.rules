@@ -10,15 +10,21 @@ service cloud.firestore {
     function isSignedIn() { return request.auth != null; }
     function isVerified() { return isSignedIn(); }
     
-    // Safely check roles without crashing if profile doesn't exist
-    function hasRole(role) {
+    // Kiểm tra admin nhanh qua token để tránh lỗi giới hạn 10 lệnh get() trong list query
+    function isAdmin() { 
+      return isVerified() && (
+        request.auth.token.email == 'ha-t@dymvietnam.net' || 
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+      ); 
+    }
+
+    function isRep() {
       return isVerified() && 
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == role;
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'representative';
     }
     
-    function isAdmin() { return hasRole('admin'); }
-    function isRep() { return hasRole('representative'); }
     function isOwner(userId) { return isVerified() && request.auth.uid == userId; }
     function incoming() { return request.resource.data; }
     function existing() { return resource.data; }
@@ -45,9 +51,12 @@ service cloud.firestore {
       allow get: if isVerified();
       allow list: if isAdmin();
       allow create: if isVerified() && isOwner(userId) && isValidUser(incoming()) 
-                     && incoming().role == 'employee';
+                     && (incoming().role == 'employee' || request.auth.token.email == 'ha-t@dymvietnam.net');
       allow update: if isVerified() && (
-        (isOwner(userId) && incoming().diff(existing()).affectedKeys().hasOnly(['nickname', 'companyId']))
+        (isOwner(userId) && (
+          incoming().diff(existing()).affectedKeys().hasOnly(['nickname', 'companyId', 'username', 'realName']) ||
+          (request.auth.token.email == 'ha-t@dymvietnam.net')
+        ))
         || (isAdmin() && incoming().diff(existing()).affectedKeys().hasAny(['role', 'companyId']))
       );
     }
@@ -58,6 +67,11 @@ service cloud.firestore {
     }
 
     match /dishes/{dishId} {
+      allow read: if isVerified();
+      allow write: if isAdmin();
+    }
+
+    match /combos/{comboId} {
       allow read: if isVerified();
       allow write: if isAdmin();
     }
@@ -80,8 +94,9 @@ service cloud.firestore {
          && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'paymentImageUrl', 'note']))
         || 
         // Action: Admin Confirm/Reject
-        (isAdmin() && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'shipFee']))
+        (isAdmin() && (incoming().diff(existing()).affectedKeys().hasAny(['status', 'shipFee'])))
       );
+      allow delete: if isAdmin();
     }
 
     match /lateOrderRequests/{requestId} {
