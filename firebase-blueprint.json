@@ -1,0 +1,110 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "phone": { "type": "string" },
+        "realName": { "type": "string" },
+        "nickname": { "type": "string" },
+        "role": { "type": "string", "enum": ["employee", "admin", "representative"] },
+        "companyId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["phone", "realName", "role"]
+    },
+    "Company": {
+      "title": "Company",
+      "description": "Company information for group delivery",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "address": { "type": "string" },
+        "workingTime": { "type": "string" },
+        "contactMethod": { "type": "string" },
+        "representativeId": { "type": "string" },
+        "location": { "type": "object" }
+      },
+      "required": ["name", "address"]
+    },
+    "Dish": {
+      "title": "Dish",
+      "description": "Individual food item (main or add-on)",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "type": "string", "enum": ["main", "addon"] },
+        "basePrice": { "type": "number" },
+        "description": { "type": "string" },
+        "imageUrl": { "type": "string" }
+      },
+      "required": ["name", "type", "basePrice"]
+    },
+    "Combo": {
+      "title": "Combo",
+      "description": "Bundle of multiple dishes with special pricing",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "dishIds": { "type": "array", "items": { "type": "string" } },
+        "price": { "type": "number" },
+        "description": { "type": "string" }
+      },
+      "required": ["name", "dishIds", "price"]
+    },
+    "DailyMenu": {
+      "title": "DailyMenu",
+      "description": "Menu for a specific date",
+      "type": "object",
+      "properties": {
+        "date": { "type": "string", "format": "date" },
+        "dishIds": { "type": "array", "items": { "type": "string" } },
+        "comboIds": { "type": "array", "items": { "type": "string" } },
+        "priceOverrides": { "type": "object", "additionalProperties": { "type": "number" } },
+        "status": { "type": "string", "enum": ["draft", "published"] }
+      },
+      "required": ["date", "status"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Customer order details",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "companyId": { "type": "string" },
+        "date": { "type": "string", "format": "date" },
+        "status": { "type": "string", "enum": ["pending_payment", "payment_submitted", "confirmed", "rejected"] },
+        "items": { "type": "array" },
+        "totalAmount": { "type": "number" },
+        "shipFee": { "type": "number" },
+        "paymentImageUrl": { "type": "string" },
+        "note": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "companyId", "date", "status"]
+    },
+    "LateOrderRequest": {
+      "title": "LateOrderRequest",
+      "description": "Request to order after deadline",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "date": { "type": "string", "format": "date" },
+        "reason": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "date", "status"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": { "schema": "User", "description": "Global user profiles" },
+    "/companies/{companyId}": { "schema": "Company", "description": "Company data" },
+    "/dishes/{dishId}": { "schema": "Dish", "description": "Food catalog" },
+    "/combos/{comboId}": { "schema": "Combo", "description": "Menu bundles" },
+    "/dailyMenus/{menuId}": { "schema": "DailyMenu", "description": "Date-based menus" },
+    "/orders/{orderId}": { "schema": "Order", "description": "Customer orders" },
+    "/lateOrderRequests/{requestId}": { "schema": "LateOrderRequest", "description": "Late order workflow" }
+  }
+}

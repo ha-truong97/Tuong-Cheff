@@ -1,0 +1,82 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 1. Primitives
+    function isSignedIn() { return request.auth != null; }
+    function getUser() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
+    function isAdmin() { return isSignedIn() && getUser().role == 'admin'; }
+    function isRep() { return isSignedIn() && getUser().role == 'representative'; }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+
+    // 2. Validation Blueprints
+    function isValidUser(data) {
+      return data.phone is string && data.phone.size() <= 15
+        && data.realName is string && data.realName.size() <= 100
+        && data.role in ['employee', 'admin', 'representative']
+        && (data.companyId == null || data.companyId is string);
+    }
+
+    function isValidOrder(data) {
+      return data.userId == request.auth.uid
+        && data.status in ['pending_payment', 'payment_submitted']
+        && data.totalAmount is number && data.totalAmount >= 0
+        && data.items is list && data.items.size() > 0;
+    }
+
+    // 3. Collection Rules
+    match /users/{userId} {
+      allow get: if isSignedIn();
+      allow list: if isAdmin();
+      allow create: if isSignedIn() && isOwner(userId) && isValidUser(incoming()) 
+                     && incoming().role == 'employee'; // Force default role on signup
+      allow update: if isSignedIn() && (
+        (isOwner(userId) && incoming().diff(existing()).affectedKeys().hasOnly(['nickname', 'companyId']))
+        || isAdmin()
+      );
+    }
+
+    match /companies/{companyId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /dishes/{dishId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /dailyMenus/{menuId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /orders/{orderId} {
+      allow get: if isSignedIn() && (isOwner(existing().userId) || isRep() || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isRep() || isAdmin());
+      
+      allow create: if isSignedIn() && isValidOrder(incoming()) && isValidId(orderId)
+        && (request.time < timestamp.value(incoming().date + "T10:30:00Z") // Simplified time check
+            || exists(/databases/$(database)/documents/lateOrderRequests/$(request.auth.uid + "_" + incoming().date)));
+
+      allow update: if isSignedIn() && (
+        (isOwner(existing().userId) && existing().status == 'pending_payment' 
+         && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'paymentImageUrl', 'note']))
+        || (isAdmin() && incoming().diff(existing()).affectedKeys().hasAll(['status']))
+      );
+    }
+
+    match /lateOrderRequests/{requestId} {
+      allow get: if isSignedIn() && (isOwner(existing().userId) || isAdmin());
+      allow create: if isSignedIn() && isValidId(requestId) && incoming().userId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+  }
+}
