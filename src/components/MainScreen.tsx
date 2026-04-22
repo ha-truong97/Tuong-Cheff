@@ -35,9 +35,6 @@ export default function MainScreen() {
     }
   };
 
-  if (isAdmin && view === 'admin') {
-    return <AdminDashboard onBack={() => setView('customer')} />;
-  }
   const [activeTab, setActiveTab] = useState<'menu' | 'history'>('menu');
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [cartItems, setCartItems] = useState<OrderItem[]>([]);
@@ -169,6 +166,10 @@ export default function MainScreen() {
       alert("Lỗi khi đặt đơn: " + err.message);
     }
   };
+
+  if (isAdmin && view === 'admin') {
+    return <AdminDashboard onBack={() => setView('customer')} />;
+  }
 
   return (
     <div className="min-h-screen relative overflow-hidden flex flex-col items-center justify-center p-4">

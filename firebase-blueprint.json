@@ -1,110 +1,77 @@
 {
   "entities": {
-    "User": {
-      "title": "User",
-      "description": "User profile information",
+    "users": {
+      "title": "Người dùng",
+      "description": "Thông tin tài khoản đăng nhập và phân quyền",
       "type": "object",
       "properties": {
-        "phone": { "type": "string" },
+        "username": { "type": "string", "description": "Tên đăng nhập (Real Name - Unique)" },
+        "password": { "type": "string", "description": "Hashed password" },
         "realName": { "type": "string" },
-        "nickname": { "type": "string" },
         "role": { "type": "string", "enum": ["employee", "admin", "representative"] },
         "companyId": { "type": "string" },
+        "mustChangePassword": { "type": "boolean" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["phone", "realName", "role"]
+      "required": ["username", "password", "role"]
     },
-    "Company": {
-      "title": "Company",
-      "description": "Company information for group delivery",
+    "companies": {
+      "title": "Công ty",
+      "description": "Danh sách các văn phòng đặt hàng",
       "type": "object",
       "properties": {
         "name": { "type": "string" },
         "address": { "type": "string" },
-        "workingTime": { "type": "string" },
-        "contactMethod": { "type": "string" },
-        "representativeId": { "type": "string" },
-        "location": { "type": "object" }
-      },
-      "required": ["name", "address"]
+        "memberCount": { "type": "number" }
+      }
     },
-    "Dish": {
-      "title": "Dish",
-      "description": "Individual food item (main or add-on)",
+    "dishes": {
+      "title": "Món ăn",
+      "description": "Danh mục món ăn hàng ngày",
       "type": "object",
       "properties": {
         "name": { "type": "string" },
-        "type": { "type": "string", "enum": ["main", "addon"] },
-        "basePrice": { "type": "number" },
+        "basePrice": { "type": "number", "description": "Giá mặc định (thường 36000)" },
         "description": { "type": "string" },
-        "imageUrl": { "type": "string" }
-      },
-      "required": ["name", "type", "basePrice"]
+        "imageUrl": { "type": "string" },
+        "type": { "type": "string", "enum": ["main", "addon"] }
+      }
     },
-    "Combo": {
-      "title": "Combo",
-      "description": "Bundle of multiple dishes with special pricing",
+    "dailyMenus": {
+      "title": "Thực đơn ngày",
+      "description": "Gán món ăn vào ngày cụ thể và điều chỉnh giá",
       "type": "object",
       "properties": {
-        "name": { "type": "string" },
-        "dishIds": { "type": "array", "items": { "type": "string" } },
-        "price": { "type": "number" },
-        "description": { "type": "string" }
-      },
-      "required": ["name", "dishIds", "price"]
-    },
-    "DailyMenu": {
-      "title": "DailyMenu",
-      "description": "Menu for a specific date",
-      "type": "object",
-      "properties": {
-        "date": { "type": "string", "format": "date" },
-        "dishIds": { "type": "array", "items": { "type": "string" } },
-        "comboIds": { "type": "array", "items": { "type": "string" } },
-        "priceOverrides": { "type": "object", "additionalProperties": { "type": "number" } },
+        "date": { "type": "string" },
+        "dishIds": { "type": "array" },
+        "customPrices": { "type": "object", "description": "Lưu {dishId: price} nếu khác mặc định" },
         "status": { "type": "string", "enum": ["draft", "published"] }
-      },
-      "required": ["date", "status"]
+      }
     },
-    "Order": {
-      "title": "Order",
-      "description": "Customer order details",
+    "orders": {
+      "title": "Đơn hàng",
+      "description": "Thông tin chi tiết đơn đặt cơm",
       "type": "object",
       "properties": {
         "userId": { "type": "string" },
+        "userName": { "type": "string" },
         "companyId": { "type": "string" },
-        "date": { "type": "string", "format": "date" },
-        "status": { "type": "string", "enum": ["pending_payment", "payment_submitted", "confirmed", "rejected"] },
-        "items": { "type": "array" },
+        "items": { "type": "array", "description": "Mảng các món (OrderItem)" },
         "totalAmount": { "type": "number" },
+        "totalQuantity": { "type": "number" },
+        "paymentStatus": { "type": "string", "enum": ["pending", "submitted", "confirmed", "rejected"] },
+        "billImageUrl": { "type": "string" },
         "shipFee": { "type": "number" },
-        "paymentImageUrl": { "type": "string" },
-        "note": { "type": "string" },
-        "createdAt": { "type": "string", "format": "date-time" }
-      },
-      "required": ["userId", "companyId", "date", "status"]
-    },
-    "LateOrderRequest": {
-      "title": "LateOrderRequest",
-      "description": "Request to order after deadline",
-      "type": "object",
-      "properties": {
-        "userId": { "type": "string" },
-        "date": { "type": "string", "format": "date" },
-        "reason": { "type": "string" },
-        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
-        "createdAt": { "type": "string", "format": "date-time" }
-      },
-      "required": ["userId", "date", "status"]
+        "date": { "type": "string" },
+        "createdAt": { "type": "string" }
+      }
     }
   },
   "firestore": {
-    "/users/{userId}": { "schema": "User", "description": "Global user profiles" },
-    "/companies/{companyId}": { "schema": "Company", "description": "Company data" },
-    "/dishes/{dishId}": { "schema": "Dish", "description": "Food catalog" },
-    "/combos/{comboId}": { "schema": "Combo", "description": "Menu bundles" },
-    "/dailyMenus/{menuId}": { "schema": "DailyMenu", "description": "Date-based menus" },
-    "/orders/{orderId}": { "schema": "Order", "description": "Customer orders" },
-    "/lateOrderRequests/{requestId}": { "schema": "LateOrderRequest", "description": "Late order workflow" }
+    "users": { "schema": "users", "description": "Danh sách người dùng" },
+    "companies": { "schema": "companies", "description": "Danh sách công ty" },
+    "dishes": { "schema": "dishes", "description": "Kho món ăn" },
+    "dailyMenus": { "schema": "dailyMenus", "description": "Lịch thực đơn hàng ngày" },
+    "orders": { "schema": "orders", "description": "Quản lý đơn hàng" }
   }
 }

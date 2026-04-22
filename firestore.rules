@@ -1,19 +1,21 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // 0. Global Safety Net
+    
+    // 0. ADMIN MASTER BY EMAIL (CASE-INSENSITIVE)
     match /{document=**} {
-      allow read, write: if false;
+      allow read, write: if request.auth != null && 
+        (request.auth.token.email.lower() == 'ha-t@dymvietnam.net');
     }
 
     // 1. Hardened Globals
     function isSignedIn() { return request.auth != null; }
     function isVerified() { return isSignedIn(); }
     
-    // Kiểm tra admin nhanh qua token để tránh lỗi giới hạn 10 lệnh get() trong list query
+    // Kiểm tra admin linh hoạt
     function isAdmin() { 
       return isVerified() && (
-        request.auth.token.email == 'ha-t@dymvietnam.net' || 
+        request.auth.token.email.lower() == 'ha-t@dymvietnam.net' || 
         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
       ); 
@@ -81,22 +83,25 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    function isBeforeDeadline() {
+      // 10:30 AM in GMT+7 (assuming server time is handled properly)
+      // For simplicity, we check if current time hour is < 10 or (hour == 10 and min <= 30)
+      // request.time.getHours() depends on timezone, we'll use a safer approach in production
+      return true; // Will be refined with timestamp logic
+    }
+
     match /orders/{orderId} {
-      allow get: if isVerified() && (isOwner(existing().userId) || isRep() || isAdmin());
-      allow list: if isVerified() && (resource.data.userId == request.auth.uid || isRep() || isAdmin());
+      allow get: if isVerified() && (isOwner(existing().userId) || isAdmin());
+      allow list: if isVerified() && (resource.data.userId == request.auth.uid || isAdmin());
       
-      allow create: if isVerified() && isValidId(orderId) && isValidOrder(incoming());
+      allow create: if isVerified() && isValidId(orderId) && isValidOrder(incoming())
+                     && (isBeforeDeadline() || isAdmin()); // Admin can override deadline
 
       allow update: if isVerified() && (
-        // Action: Submit Payment
-        (isOwner(existing().userId) && existing().status == 'pending_payment' 
-         && incoming().status == 'payment_submitted'
-         && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'paymentImageUrl', 'note']))
-        || 
-        // Action: Admin Confirm/Reject
-        (isAdmin() && (incoming().diff(existing()).affectedKeys().hasAny(['status', 'shipFee'])))
+        (isOwner(existing().userId) && existing().status == 'pending' 
+         && incoming().status == 'submitted' && incoming().diff(existing()).affectedKeys().hasOnly(['paymentStatus', 'billImageUrl']))
+        || (isAdmin())
       );
-      allow delete: if isAdmin();
     }
 
     match /lateOrderRequests/{requestId} {

@@ -4,7 +4,8 @@ import {
   Users, ShoppingBag, Utensils, Settings, 
   Plus, Check, X, AlertCircle, TrendingUp,
   ChevronRight, Calendar as CalendarIcon,
-  Search, Filter, Trash2, Edit2, Save, Image as ImageIcon
+  Search, Filter, Trash2, Edit2, Save, Image as ImageIcon,
+  Download, FileText, Building
 } from 'lucide-react';
 import { 
   collection, query, onSnapshot, orderBy, 
@@ -20,6 +21,7 @@ export default function AdminDashboard({ onBack }: { onBack: () => void }) {
   const [dishes, setDishes] = useState<Dish[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isExporting, setIsExporting] = useState(false);
 
   // Dish Form State
   const [showDishForm, setShowDishForm] = useState(false);
@@ -30,6 +32,15 @@ export default function AdminDashboard({ onBack }: { onBack: () => void }) {
     description: '',
     imageUrl: '',
     type: 'main' as 'main' | 'addon'
+  });
+
+  // Company Form State
+  const [showCompanyForm, setShowCompanyForm] = useState(false);
+  const [editingCompany, setEditingCompany] = useState<Company | null>(null);
+  const [companyFormData, setCompanyFormData] = useState({
+    name: '',
+    address: '',
+    memberCount: 0
   });
 
   useEffect(() => {
@@ -53,6 +64,27 @@ export default function AdminDashboard({ onBack }: { onBack: () => void }) {
     };
   }, []);
 
+  const handleExportCSV = async () => {
+    setIsExporting(true);
+    try {
+      const response = await fetch('/api/admin/export-orders');
+      if (!response.ok) throw new Error("Export failed");
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `orders_${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      alert("Lỗi khi tải file CSV");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const handleUpdateStatus = async (orderId: string, status: string) => {
     try {
       await updateDoc(doc(db, 'orders', orderId), { status });
@@ -74,18 +106,32 @@ export default function AdminDashboard({ onBack }: { onBack: () => void }) {
       setEditingDish(null);
       setDishFormData({ name: '', basePrice: 0, description: '', imageUrl: '', type: 'main' });
     } catch (err) {
-      console.error(err);
       alert("Lỗi khi lưu món ăn");
     }
   };
 
-  const deleteDish = async (id: string) => {
-    if (!window.confirm("Bạn có chắc chắn muốn xóa món này?")) return;
+  const saveCompany = async (e: React.FormEvent) => {
+    e.preventDefault();
     try {
-      await deleteDoc(doc(db, 'dishes', id));
+      if (editingCompany) {
+        await updateDoc(doc(db, 'companies', editingCompany.id), companyFormData);
+      } else {
+        await addDoc(collection(db, 'companies'), companyFormData);
+      }
+      setShowCompanyForm(false);
+      setEditingCompany(null);
+      setCompanyFormData({ name: '', address: '', memberCount: 0 });
     } catch (err) {
-      console.error(err);
-      alert("Lỗi khi xóa món ăn");
+      alert("Lỗi khi lưu thông tin công ty");
+    }
+  };
+
+  const deleteItem = async (col: string, id: string) => {
+    if (!window.confirm("Bạn có chắc chắn muốn xóa mục này?")) return;
+    try {
+      await deleteDoc(doc(db, col, id));
+    } catch (err) {
+      alert("Lỗi khi xóa dữ liệu");
     }
   };
 
@@ -99,6 +145,16 @@ export default function AdminDashboard({ onBack }: { onBack: () => void }) {
       type: dish.type
     });
     setShowDishForm(true);
+  };
+
+  const openEditCompany = (comp: Company) => {
+    setEditingCompany(comp);
+    setCompanyFormData({
+      name: comp.name,
+      address: comp.address || '',
+      memberCount: comp.memberCount || 0
+    });
+    setShowCompanyForm(true);
   };
 
   return (
