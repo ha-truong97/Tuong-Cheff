@@ -8,11 +8,17 @@ service cloud.firestore {
 
     // 1. Hardened Globals
     function isSignedIn() { return request.auth != null; }
-    // Nới lỏng kiểm tra để hỗ trợ Google Auth và môi trường dev tốt hơn
     function isVerified() { return isSignedIn(); }
-    function getUserData() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
-    function isAdmin() { return isVerified() && getUserData().role == 'admin'; }
-    function isRep() { return isVerified() && getUserData().role == 'representative'; }
+    
+    // Safely check roles without crashing if profile doesn't exist
+    function hasRole(role) {
+      return isVerified() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == role;
+    }
+    
+    function isAdmin() { return hasRole('admin'); }
+    function isRep() { return hasRole('representative'); }
     function isOwner(userId) { return isVerified() && request.auth.uid == userId; }
     function incoming() { return request.resource.data; }
     function existing() { return resource.data; }
@@ -23,7 +29,7 @@ service cloud.firestore {
       return data.username is string && data.username.size() >= 1
         && data.realName is string && data.realName.size() <= 100
         && data.role in ['employee', 'admin', 'representative']
-        && (data.companyId == null || (data.companyId is string && data.companyId.size() <= 100));
+        && (data.get('companyId', null) == null || (data.companyId is string && data.companyId.size() <= 100));
     }
 
     function isValidOrder(data) {
